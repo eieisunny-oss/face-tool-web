@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Face Swap Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#080a10; --bg2:#0e1119; --card:#12161f; --card2:#161b26; --line:rgba(255,255,255,.07);
+    --fg:#eef1f7; --mut:#8b94a7; --acc:#5b8cff; --acc2:#9b6bff;
+    --ok:#3ecf8e; --warn:#f6c344; --bad:#ff6b6b;
+    --grad:linear-gradient(135deg,#5b8cff,#9b6bff);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1100px 560px at 50% -12%, rgba(91,140,255,.16), transparent 60%),
+      radial-gradient(900px 500px at 90% 0%, rgba(155,107,255,.10), transparent 55%),
+      var(--bg);
+    color:var(--fg); font-family:'Plus Jakarta Sans','Noto Sans Thai',-apple-system,sans-serif;
+    min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--acc);text-decoration:none} a:hover{text-decoration:underline}
+  .mut{color:var(--mut)} .sp{flex:1}
+  button{font:inherit;cursor:pointer;border-radius:11px;border:1px solid var(--line);background:#1b2130;color:var(--fg);padding:10px 16px;transition:.15s}
+  button:hover{border-color:rgba(255,255,255,.2)}
+  button.primary{background:var(--grad);border:0;color:#fff;font-weight:700;box-shadow:0 8px 24px rgba(91,140,255,.3)}
+  button.primary:disabled{opacity:.45;box-shadow:none;cursor:default}
+  button.ghost{background:transparent}
+  input[type=text],input[type=password]{width:100%;padding:12px 14px;border-radius:11px;border:1px solid var(--line);background:#0b0e15;color:var(--fg);font:inherit}
+  input::placeholder{color:#5c6577}
+  label{display:block;font-size:12px;color:var(--mut);margin:14px 0 6px;font-weight:600;letter-spacing:.02em}
+
+  header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;padding:14px 20px;
+    background:rgba(8,10,16,.7);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .brand{font-weight:800;font-size:17px;letter-spacing:-.01em;display:flex;gap:9px;align-items:center}
+  .brand .dot{width:26px;height:26px;border-radius:8px;background:var(--grad);display:grid;place-items:center;font-size:15px}
+  .pill{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--mut);background:#11151e;border:1px solid var(--line);padding:6px 11px;border-radius:30px}
+  .pill .led{width:8px;height:8px;border-radius:50%;background:#555}
+  .pill.on .led{background:var(--ok);box-shadow:0 0 8px var(--ok)} .pill.off .led{background:var(--bad)}
+  .me{font-size:12px;color:var(--mut)} @media(max-width:640px){.me{display:none}}
+
+  .wrap{max-width:880px;margin:0 auto;padding:22px 18px 60px}
+  .hero{padding:14px 4px 22px}
+  .hero h1{margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em;
+    background:linear-gradient(180deg,#fff,#b9c2d6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .hero p{margin:8px 0 0;color:var(--mut);font-size:14px}
+  .tabs{display:flex;gap:8px;margin-bottom:16px}
+  .tab{padding:9px 16px;border-radius:10px;border:1px solid var(--line);background:#11151e;color:var(--mut);font-weight:600;font-size:14px;cursor:pointer}
+  .tab.active{color:#fff;border-color:transparent;background:var(--grad)}
+
+  .card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:18px;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+  .card h3{margin:0 0 3px;font-size:16px;font-weight:700}
+  .hint{font-size:12px;color:var(--mut);margin-top:7px}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+
+  .bound{background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.3);border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:11px;margin-top:10px}
+  .bound img{width:42px;height:42px;border-radius:9px;object-fit:cover}
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:11px;margin-top:10px;max-height:340px;overflow:auto;padding:5px;border-radius:12px}
+  .pcell{border:2px solid transparent;border-radius:12px;overflow:hidden;cursor:pointer;background:#0b0e15;position:relative;transition:.12s}
+  .pcell:hover{transform:translateY(-2px)}
+  .pcell img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+  .pcell .nm{font-size:10px;color:var(--mut);padding:4px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pcell.sel{border-color:var(--acc)}
+  .pcell.sel::after{content:"✓";position:absolute;top:5px;right:6px;color:#fff;background:var(--grad);border-radius:50%;width:19px;height:19px;font-size:12px;display:flex;align-items:center;justify-content:center}
+
+  .jobs{width:100%;border-collapse:collapse;font-size:13px}
+  .jobs th{text-align:left;color:var(--mut);font-weight:600;font-size:11px;padding:7px 9px;border-bottom:1px solid var(--line)}
+  .jobs td{padding:10px 9px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .badge{font-size:11px;padding:4px 9px;border-radius:20px;white-space:nowrap;font-weight:600}
+  .b-queued{background:#1b2742;color:#9db8ff} .b-downloading,.b-swapping,.b-uploading{background:#3a3320;color:var(--warn)}
+  .b-done{background:#0f3324;color:var(--ok)} .b-failed{background:#3a1f1f;color:var(--bad)}
+  .b-needsreview{background:#3a2f1f;color:var(--warn)} .b-skipped{background:#222838;color:var(--mut)}
+  .bar{height:7px;background:#0b0e15;border-radius:6px;overflow:hidden;margin-top:5px;min-width:90px}
+  .bar > i{display:block;height:100%;background:var(--grad);border-radius:6px;transition:width .6s}
+  .rthumb{width:46px;height:46px;border-radius:8px;object-fit:cover;vertical-align:middle;margin-right:8px;border:1px solid var(--line)}
+  .lnk{display:inline-flex;flex-direction:column}
+
+  #gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;
+    background:radial-gradient(900px 500px at 50% -10%, rgba(91,140,255,.18), transparent),var(--bg)}
+  #gate .card{width:340px;margin:0}
+  .err{color:var(--bad);font-size:12px;min-height:16px;margin-top:8px}
+  .center{text-align:center}
+  .uplist{font-size:13px;margin-top:12px} .uplist div{padding:6px 0;border-top:1px solid var(--line)}
+  @media(max-width:640px){
+    .hero h1{font-size:24px}
+    .jobs thead{display:none}
+    .jobs td{display:block;border:0;padding:3px 0}
+    .jobs tr{display:block;border-bottom:1px solid var(--line);padding:11px 0}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="dot">🎭</span> Face Swap Studio</div>
+  <div class="sp"></div>
+  <div class="pill" id="wpill"><span class="led"></span><span id="wtext">…</span></div>
+  <span class="me" id="me"></span>
+  <button class="ghost" id="logout" style="display:none">ออก</button>
+</header>
+
+<div class="wrap" id="app" style="display:none">
+  <div class="hero">
+    <h1>เปลี่ยนหน้า อัตโนมัติ</h1>
+    <p>วางลิ้ง IG / TikTok → ระบบโหลด → เปลี่ยนเป็นหน้าสังเคราะห์ → ส่งเข้าคลังให้น้องโหลด</p>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" id="tabCreate" onclick="showTab('create')">🚀 สร้างงาน</div>
+    <div class="tab" id="tabFace" onclick="showTab('face')">➕ เพิ่มหน้า</div>
+  </div>
+
+  <!-- CREATE -->
+  <div id="viewCreate">
+    <div class="card">
+      <h3>วางลิ้ง IG / TikTok</h3>
+      <label>ลิ้ง (โปรไฟล์ หรือ โพสต์/คลิป)</label>
+      <input id="url" type="text" placeholder="https://www.instagram.com/xxx/ หรือ https://www.tiktok.com/@xxx" autocomplete="off">
+      <div class="hint" id="plat"></div>
+      <label>ชื่อบัญชีต้นทาง (@handle)</label>
+      <input id="handle" type="text" placeholder="เช่น p.pllai" autocomplete="off">
+      <div id="personaWrap">
+        <label id="personaLabel">เลือกหน้า (ครั้งแรกของบัญชีนี้)</label>
+        <div class="gallery" id="gallery"></div>
+      </div>
+      <div class="row" style="margin-top:16px">
+        <button class="primary" id="submit" disabled>ส่งงาน</button>
+        <button id="aiPick" disabled title="ให้ระบบเลือกหน้าที่ยังไม่ถูกใช้ให้อัตโนมัติ">🤖 ให้ AI เลือกหน้าให้</button>
+        <span class="err" id="formErr"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h3>งานล่าสุด</h3><span class="mut" id="jobsMeta" style="font-size:12px"></span></div>
+      <table class="jobs"><thead><tr><th>เวลา</th><th>ต้นทาง</th><th>หน้า</th><th>สถานะ</th><th>ผล</th></tr></thead>
+      <tbody id="jobsBody"></tbody></table>
+    </div>
+
+    <div class="card center">
+      <a href="https://drive.google.com/drive/folders/1c3snPZ8EGAYGQ5_XjDr6UmVYKCWrx-7o" target="_blank" style="font-weight:700">📁 คลังผลลัพธ์ (Google Drive)</a>
+      <div class="mut" style="margin-top:5px;font-size:12px">โหลดรูป/คลิปที่เปลี่ยนหน้าแล้ว — แยกโฟลเดอร์ตามบัญชี (copy_ชื่อ)</div>
+    </div>
+  </div>
+
+  <!-- ADD FACE -->
+  <div id="viewFace" style="display:none">
+    <div class="card">
+      <h3>เพิ่มหน้า persona ใหม่</h3>
+      <div class="hint">อัพรูปหน้า <b>ด้านหน้า</b> (จำเป็น) + <b>ด้านข้าง</b> (แนะนำ) — ใช้หลายมุมทำให้เปลี่ยนหน้าเนียนทุกองศา ระบบจะเตรียมหน้าให้พร้อมใช้อัตโนมัติ</div>
+      <label>ชื่อเรียก (ไม่ใส่ก็ได้)</label>
+      <input id="fName" type="text" placeholder="เช่น สาวผมยาว" autocomplete="off">
+      <label>รูปด้านหน้า *</label>
+      <input id="fFront" type="file" accept="image/*">
+      <label>รูปด้านข้าง (แนะนำ)</label>
+      <input id="fSide" type="file" accept="image/*">
+      <div class="row" style="margin-top:16px">
+        <button class="primary" id="fSubmit">อัพหน้า</button>
+        <span class="err" id="fErr"></span>
+      </div>
+      <div class="uplist" id="upList"></div>
+    </div>
+  </div>
+</div>
+
+<div id="gate">
+  <div class="card">
+    <h3 style="margin-bottom:12px">เข้าสู่ระบบ</h3>
+    <input id="email" type="text" placeholder="อีเมล" autocomplete="username">
+    <div style="height:10px"></div>
+    <input id="password" type="text" style="-webkit-text-security:disc" placeholder="รหัสผ่าน" autocomplete="current-password">
+    <div style="height:12px"></div>
+    <button class="primary" id="login" style="width:100%">เข้าสู่ระบบ</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</div>
+
+<script>
+var SUPABASE_URL='https://kzduwokdnekkcpfddhjo.supabase.co';
+var KEY='sb_publishable_lhQxipVpSRTqznYtvqa6nw_sMaUq-Ib';
+var sb=window.supabase.createClient(SUPABASE_URL,KEY);
+var $=function(id){return document.getElementById(id);};
+var personas=[], chosen=null, boundPersona=null, meEmail=null, jobsById={};
+
+function safeHandle(h){return String(h||'').trim().replace(/^@+/,'').toLowerCase().normalize('NFKD').replace(/[^\x00-\x7F]/g,'').replace(/[^a-z0-9._-]+/g,'_').replace(/_+/g,'_').replace(/^[_.\-]+|[_.\-]+$/g,'')||'';}
+function detectPlatform(u){if(/tiktok\.com/i.test(u))return'tiktok';if(/instagram\.com/i.test(u))return'instagram';return null;}
+// Stable key for a SINGLE post/clip link → "<platform>/<id>", else null (profile = always fresh).
+// MUST stay in sync with sourceKey() in ~/.hermes/scripts/face-tool/lib/download.js.
+function sourceKey(u){u=String(u||'').trim();var m=u.match(/instagram\.com\/(?:[^\/?#]+\/)?(?:p|reel|reels|tv)\/([A-Za-z0-9_-]+)/i);if(m)return'instagram/'+m[1];m=u.match(/tiktok\.com\/(?:[^?#]*\/)?(?:video|photo)\/(\d+)/i);if(m)return'tiktok/'+m[1];return null;}
+function ext(n){var m=(n||'').match(/\.([a-z0-9]+)$/i);return m?m[1].toLowerCase():'png';}
+
+// ---- auth ----
+function applySession(s){
+  if(s){meEmail=(s.user&&s.user.email)||null;$('me').textContent=meEmail||'';$('gate').style.display='none';$('app').style.display='block';$('logout').style.display='inline-block';init();}
+  else{$('gate').style.display='flex';$('app').style.display='none';$('logout').style.display='none';}
+}
+sb.auth.onAuthStateChange(function(_e,s){applySession(s);});
+sb.auth.getSession().then(function(r){applySession(r.data.session);});
+$('login').onclick=function(){$('loginErr').textContent='';sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value}).then(function(r){if(r.error)$('loginErr').textContent=r.error.message;});};
+$('password').addEventListener('keydown',function(e){if(e.key==='Enter')$('login').click();});
+$('logout').onclick=function(){sb.auth.signOut();};
+
+// ---- init ----
+var inited=false,jt=null,wt=null;
+function init(){if(inited)return;inited=true;loadPersonas();loadJobs();loadWorker();
+  jt=setInterval(loadJobs,4000);wt=setInterval(loadWorker,10000);
+  $('url').addEventListener('input',onUrl);$('handle').addEventListener('input',onHandle);
+  $('submit').onclick=function(){submitJob(false);};$('aiPick').onclick=function(){submitJob(true);};$('fSubmit').onclick=uploadPersona;}
+
+function showTab(t){
+  $('tabCreate').classList.toggle('active',t==='create');$('tabFace').classList.toggle('active',t==='face');
+  $('viewCreate').style.display=t==='create'?'block':'none';$('viewFace').style.display=t==='face'?'block':'none';
+  if(t==='face')loadUploads();
+}
+
+// ---- worker status ----
+function loadWorker(){
+  sb.from('worker_status').select('last_seen,state').eq('id',1).maybeSingle().then(function(r){
+    var p=$('wpill');
+    if(r.error||!r.data||!r.data.last_seen){p.className='pill off';$('wtext').textContent='ไม่ทราบสถานะ';return;}
+    var age=(Date.now()-new Date(r.data.last_seen).getTime())/1000;
+    if(age<35){p.className='pill on';$('wtext').textContent=r.data.state==='working'?'กำลังทำงาน':'ระบบออนไลน์';}
+    else{p.className='pill off';$('wtext').textContent='ออฟไลน์ ('+fmtAge(age)+')';}
+  });
+}
+function fmtAge(s){if(s<90)return Math.round(s)+' วิ';if(s<5400)return Math.round(s/60)+' นาที';return Math.round(s/3600)+' ชม.';}
+
+// ---- personas ----
+function loadPersonas(){sb.from('swap_personas').select('persona_id,display_name,thumb_url').eq('active',true).order('sort').then(function(r){if(r.error)return;personas=r.data||[];renderGallery();});}
+function renderGallery(){var g=$('gallery');g.innerHTML='';personas.forEach(function(p){var d=document.createElement('div');d.className='pcell'+(chosen===p.persona_id?' sel':'');d.innerHTML='<img loading="lazy" src="'+p.thumb_url+'"><div class="nm">'+p.display_name+'</div>';d.onclick=function(){chosen=p.persona_id;renderGallery();validate();};g.appendChild(d);});}
+
+// ---- submit job ----
+function onUrl(){var p=detectPlatform($('url').value.trim());$('plat').textContent=p?('แพลตฟอร์ม: '+p):($('url').value?'⚠️ ต้องเป็นลิ้ง instagram.com หรือ tiktok.com':'');validate();}
+var ht=null;
+function onHandle(){clearTimeout(ht);ht=setTimeout(checkBinding,400);validate();}
+function rmEl(id){var e=$(id);if(e)e.remove();}
+function checkBinding(){var h=safeHandle($('handle').value);boundPersona=null;if(!h){showPicker(true);return;}
+  sb.from('swap_bindings').select('persona_id').eq('source_handle',h).maybeSingle().then(function(r){
+    rmEl('boundBox');rmEl('ovLink');
+    if(r.data){boundPersona=r.data.persona_id;chosen=r.data.persona_id;var p=personas.find(function(x){return x.persona_id===boundPersona;});
+      $('personaLabel').textContent='บัญชีนี้ผูกหน้าไว้แล้ว — ใช้หน้าเดิมอัตโนมัติ';$('gallery').style.display='none';
+      var box=document.createElement('div');box.id='boundBox';box.className='bound';box.innerHTML=(p?'<img src="'+p.thumb_url+'">':'')+'<div>'+(p?p.display_name:boundPersona)+' <span class="mut">— ล็อกไว้แล้ว</span></div>';$('personaWrap').appendChild(box);
+      var ov=document.createElement('div');ov.id='ovLink';ov.style.marginTop='8px';ov.innerHTML='<a href="#" class="lnk">↻ เปลี่ยนหน้าเฉพาะครั้งนี้</a> <span class="mut" style="font-size:11px">(ไม่เปลี่ยนหน้าประจำบัญชี)</span>';
+      ov.querySelector('a').onclick=function(e){e.preventDefault();overrideFace();};$('personaWrap').appendChild(ov);
+    }else{showPicker(false);}validate();});}
+function overrideFace(){boundPersona=null;chosen=null;rmEl('boundBox');rmEl('ovLink');$('personaLabel').textContent='เลือกหน้าใหม่ (เฉพาะครั้งนี้ — ไม่เปลี่ยนหน้าประจำบัญชี)';$('gallery').style.display='grid';renderGallery();validate();}
+function showPicker(reset){boundPersona=null;rmEl('boundBox');rmEl('ovLink');$('personaLabel').textContent='เลือกหน้า (ครั้งแรกของบัญชีนี้)';$('gallery').style.display='grid';if(reset)chosen=null;renderGallery();}
+function validate(){var ok=detectPlatform($('url').value.trim())&&safeHandle($('handle').value);
+  $('submit').disabled=!(ok&&(boundPersona||chosen));$('aiPick').disabled=!ok;}
+function submitJob(auto){$('formErr').textContent='';rmEl('dupWarn');
+  var key=sourceKey($('url').value.trim());
+  if(!key)return doSubmit(auto);                 // profile/unknown link → no dedup, submit as-is
+  $('submit').disabled=true;$('aiPick').disabled=true;
+  sb.from('swap_sources').select('source_handle,post_id,last_seen').eq('source_key',key).maybeSingle().then(function(r){
+    if(r.data){showDupWarn(r.data,auto);validate();}
+    else doSubmit(auto);});}
+function showDupWarn(src,auto){rmEl('dupWarn');
+  var d=document.createElement('div');d.id='dupWarn';d.className='bound';d.style.cssText='display:block;border-color:var(--warn);background:rgba(246,195,68,.08)';
+  d.innerHTML='<div style="font-weight:600;color:var(--warn)">⚠️ ลิ้งนี้เคยรับแล้ว</div>'+
+    '<div class="mut" style="font-size:12px;margin:4px 0 10px">@'+(src.source_handle||'')+' · เมื่อ '+fmtTime(src.last_seen)+' — อยากได้หน้าอื่นให้เลือกหน้าใหม่ด้านบนก่อน แล้วกดทำต่อ (ระบบใช้ไฟล์ที่โหลดไว้ ไม่โหลดซ้ำ)</div>'+
+    '<div class="row"><button class="primary" id="dupGo">ทำต่อด้วยหน้าที่เลือก</button><button class="ghost" id="dupCancel">ยกเลิก</button></div>';
+  $('personaWrap').appendChild(d);
+  $('dupGo').onclick=function(){rmEl('dupWarn');doSubmit(auto);};
+  $('dupCancel').onclick=function(){rmEl('dupWarn');validate();};}
+function doSubmit(auto){$('formErr').textContent='';$('submit').disabled=true;$('aiPick').disabled=true;
+  sb.from('swap_jobs').insert({source_url:$('url').value.trim(),source_handle:safeHandle($('handle').value),source_platform:detectPlatform($('url').value.trim()),persona_id:auto?null:(boundPersona||chosen)}).then(function(r){
+    if(r.error){$('formErr').textContent=r.error.message;validate();return;}
+    rmEl('dupWarn');$('url').value='';$('handle').value='';$('plat').textContent='';chosen=null;showPicker(true);loadJobs();});}
+
+// ---- jobs ----
+function fmtTime(t){return new Date(t).toLocaleString('th-TH',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'});}
+function fmtEta(s){if(s==null)return'';if(s<90)return'เหลือ ~'+Math.round(s)+' วิ';return'เหลือ ~'+Math.round(s/60)+' นาที';}
+function badge(s){return'<span class="badge b-'+s.replace('-','')+'">'+s+'</span>';}
+function jobActive(s){return['queued','downloading','swapping','uploading'].indexOf(s)>=0;}
+function resultCell(j){
+  if(jobActive(j.status)){var p=j.progress||{};var pct=p.pct||0;return'<div class="mut" style="font-size:11px">'+(p.stage||j.status)+(p.total>1?(' '+(p.item||p.done||0)+'/'+p.total):'')+' · '+pct+'%</div><div class="bar"><i style="width:'+pct+'%"></i></div><div class="mut" style="font-size:10px;margin-top:3px">'+fmtEta(p.etaSec)+'</div>';}
+  if(j.status==='failed')return'<span class="mut">'+(j.error||'').slice(0,50)+'</span>';
+  if(j.status==='skipped')return'<span class="mut">ข้าม (ไม่มีหน้าชัด)</span>';
+  if(j.result&&j.result.items){var its=j.result.items.filter(function(i){return i.webViewLink;});
+    if(!its.length)return'<span class="mut">—</span>';
+    return its.map(function(i){return'<a class="lnk" href="'+i.webViewLink+'" target="_blank">'+(i.previewUrl?'<img class="rthumb" src="'+i.previewUrl+'">':'')+'ไฟล์ '+i.index+'</a>';}).join(' ');}
+  return'<span class="mut">—</span>';
+}
+function actionCell(j){var a='';
+  if(['failed','skipped','needs-review'].indexOf(j.status)>=0)a+=' <button class="ghost" style="padding:5px 10px;font-size:12px" onclick="retry(\''+j.id+'\')">↻ ลองใหม่</button>';
+  if(['done','needs-review'].indexOf(j.status)>=0)a+=' <button class="ghost" style="padding:5px 10px;font-size:12px" onclick="openReswap(\''+j.id+'\')">🔄 เปลี่ยนหน้า</button>';
+  return a;
+}
+function retry(id){sb.rpc('requeue_job',{job_id:id}).then(function(r){if(r.error)alert(r.error.message);else loadJobs();});}
+// Re-swap a past job's source with a different face — submits a NEW job reusing the same link
+// (the worker pulls the raw from cache, no re-download). The original output is left intact.
+function openReswap(id){var j=jobsById[id];if(!j)return;
+  var ov=document.createElement('div');ov.id='reswapModal';
+  ov.style.cssText='position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px';
+  var card=document.createElement('div');card.className='card';card.style.cssText='max-width:560px;width:100%;max-height:80vh;overflow:auto';
+  card.innerHTML='<div class="row" style="justify-content:space-between"><h3>เปลี่ยนหน้า — @'+(j.source_handle||'')+'</h3><button class="ghost" id="rsClose">✕</button></div>'+
+    '<div class="mut" style="font-size:12px;margin-bottom:10px">เลือกหน้าใหม่ — ระบบใช้ไฟล์ที่โหลดไว้ ไม่โหลดซ้ำ (ไฟล์เดิมยังอยู่)</div>'+
+    '<div class="gallery" id="rsGallery"></div><div class="err" id="rsErr" style="margin-top:8px"></div>';
+  ov.appendChild(card);document.body.appendChild(ov);
+  $('rsClose').onclick=function(){ov.remove();};ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  var g=$('rsGallery');personas.forEach(function(p){var d=document.createElement('div');d.className='pcell';d.innerHTML='<img loading="lazy" src="'+p.thumb_url+'"><div class="nm">'+p.display_name+'</div>';
+    d.onclick=function(){d.style.opacity='.5';$('rsErr').textContent='';
+      sb.from('swap_jobs').insert({source_url:j.source_url,source_handle:j.source_handle,source_platform:j.source_platform,persona_id:p.persona_id}).then(function(r){
+        if(r.error){$('rsErr').textContent=r.error.message;d.style.opacity='';return;}
+        ov.remove();loadJobs();});};
+    g.appendChild(d);});}
+function loadJobs(){sb.from('swap_jobs').select('*').order('created_at',{ascending:false}).limit(25).then(function(r){
+  if(r.error)return;var b=$('jobsBody');b.innerHTML='';jobsById={};
+  (r.data||[]).forEach(function(j){jobsById[j.id]=j;var tr=document.createElement('tr');
+    tr.innerHTML='<td class="mut">'+fmtTime(j.created_at)+'</td><td>@'+(j.source_handle||'')+'<div class="mut" style="font-size:10px">'+(j.source_platform||'')+'</div></td><td>'+(j.persona_id||'—')+'</td><td>'+badge(j.status)+actionCell(j)+'</td><td>'+resultCell(j)+'</td>';
+    b.appendChild(tr);});
+  $('jobsMeta').textContent='อัพเดต '+new Date().toLocaleTimeString('th-TH');});}
+
+// ---- persona upload ----
+function uploadPersona(){
+  $('fErr').textContent='';var front=$('fFront').files[0],side=$('fSide').files[0],nm=$('fName').value.trim();
+  if(!front){$('fErr').textContent='ต้องมีรูปด้านหน้า';return;}
+  $('fSubmit').disabled=true;$('fSubmit').textContent='กำลังอัพ...';
+  var base=(meEmail||'anon').replace(/[^a-z0-9]/gi,'_')+'/'+Date.now()+'-'+Math.floor(Math.random()*9999);
+  var fpath=base+'-front.'+ext(front.name),spath=side?(base+'-side.'+ext(side.name)):null;
+  sb.storage.from('persona-sources').upload(fpath,front,{upsert:true}).then(function(r){
+    if(r.error)throw r.error;
+    return side?sb.storage.from('persona-sources').upload(spath,side,{upsert:true}):Promise.resolve({});
+  }).then(function(r){
+    if(r&&r.error)throw r.error;
+    return sb.from('persona_uploads').insert({name:nm,front_url:fpath,side_url:spath});
+  }).then(function(r){
+    if(r.error)throw r.error;
+    $('fName').value='';$('fFront').value='';$('fSide').value='';$('fErr').style.color='var(--ok)';$('fErr').textContent='✓ อัพแล้ว กำลังเตรียมหน้า...';loadUploads();
+    setTimeout(function(){$('fErr').textContent='';$('fErr').style.color='var(--bad)';},4000);
+  }).catch(function(e){$('fErr').textContent=e.message||'อัพไม่สำเร็จ';})
+  .then(function(){$('fSubmit').disabled=false;$('fSubmit').textContent='อัพหน้า';});
+}
+function loadUploads(){sb.from('persona_uploads').select('*').order('created_at',{ascending:false}).limit(15).then(function(r){
+  if(r.error)return;var el=$('upList');if(!(r.data||[]).length){el.innerHTML='';return;}
+  el.innerHTML='<div class="mut" style="border:0;font-weight:600">หน้าที่อัพล่าสุด</div>'+r.data.map(function(u){
+    var st=u.status==='ready'?'<span style="color:var(--ok)">พร้อมใช้ '+(u.persona_id||'')+'</span>':u.status==='failed'?'<span style="color:var(--bad)">ล้มเหลว</span>':'<span style="color:var(--warn)">กำลังเตรียม…</span>';
+    return'<div>'+(u.name||'(ไม่มีชื่อ)')+' — '+st+'</div>';}).join('');});}
+</script>
+</body>
+</html>
