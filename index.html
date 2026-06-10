@@ -82,6 +82,26 @@
   .rthumb{width:46px;height:46px;border-radius:8px;object-fit:cover;vertical-align:middle;margin-right:8px;border:1px solid var(--line)}
   .lnk{display:inline-flex;flex-direction:column}
 
+  /* process dashboard — 3 phases (download → swap → upload) */
+  .proc{display:flex;flex-direction:column;gap:13px;margin-top:6px}
+  .pline{display:flex;align-items:center;gap:12px}
+  .pico{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:17px;flex:none;background:#0b0e15;border:1px solid var(--line);transition:.2s}
+  .pbody{flex:1;min-width:0}
+  .phead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px;font-weight:600;margin-bottom:5px}
+  .phead .pst{font-size:11px;font-weight:600;color:var(--mut);white-space:nowrap}
+  .pbar{height:9px;background:#0b0e15;border-radius:6px;overflow:hidden}
+  .pbar > i{display:block;height:100%;width:0;border-radius:6px;background:var(--grad);transition:width .6s ease}
+  .pline.pending .pico{opacity:.45} .pline.pending .phead{color:var(--mut)}
+  .pline.done .pico{background:rgba(62,207,142,.14);border-color:rgba(62,207,142,.45)}
+  .pline.done .pbar > i{background:var(--ok);width:100%} .pline.done .pst{color:var(--ok)}
+  .pline.active .pico{background:var(--grad);border-color:transparent;animation:ppulse 1.5s infinite}
+  .pline.active .pst{color:var(--acc)}
+  .pline.failed .pico{background:rgba(255,107,107,.14);border-color:rgba(255,107,107,.45)} .pline.failed .pbar > i{background:var(--bad)} .pline.failed .pst{color:var(--bad)}
+  .pline.skipped .pico{opacity:.55} .pline.skipped .phead,.pline.skipped .pst{color:var(--mut)}
+  .pbar.indet > i{width:38%;background:linear-gradient(90deg,transparent,var(--acc),var(--acc2),transparent);animation:pindet 1.15s infinite ease-in-out}
+  @keyframes pindet{0%{margin-left:-40%}100%{margin-left:102%}}
+  @keyframes ppulse{0%,100%{box-shadow:0 0 0 0 rgba(91,140,255,.45)}50%{box-shadow:0 0 0 7px rgba(91,140,255,0)}}
+
   #gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;
     background:radial-gradient(900px 500px at 50% -10%, rgba(91,140,255,.18), transparent),var(--bg)}
   #gate .card{width:340px;margin:0}
@@ -118,6 +138,11 @@
 
   <!-- CREATE -->
   <div id="viewCreate">
+    <div class="card" id="procCard" style="display:none">
+      <div class="row" style="justify-content:space-between"><h3 id="procTitle">สถานะการทำงาน</h3><span class="mut" id="procMeta" style="font-size:12px"></span></div>
+      <div class="proc" id="procBody"></div>
+    </div>
+
     <div class="card">
       <h3>วางลิ้ง IG / TikTok</h3>
       <label>ลิ้ง (โปรไฟล์ หรือ โพสต์/คลิป)</label>
@@ -310,11 +335,63 @@ function openReswap(id){var j=jobsById[id];if(!j)return;
         ov.remove();loadJobs();});};
     g.appendChild(d);});}
 function loadJobs(){sb.from('swap_jobs').select('*').order('created_at',{ascending:false}).limit(25).then(function(r){
-  if(r.error)return;var b=$('jobsBody');b.innerHTML='';jobsById={};
-  (r.data||[]).forEach(function(j){jobsById[j.id]=j;var tr=document.createElement('tr');
+  if(r.error)return;var b=$('jobsBody');b.innerHTML='';jobsById={};var list=r.data||[];
+  list.forEach(function(j){jobsById[j.id]=j;var tr=document.createElement('tr');
     tr.innerHTML='<td class="mut">'+fmtTime(j.created_at)+'</td><td>@'+(j.source_handle||'')+'<div class="mut" style="font-size:10px">'+(j.source_platform||'')+'</div></td><td>'+(j.persona_id||'—')+'</td><td>'+badge(j.status)+actionCell(j)+'</td><td>'+resultCell(j)+'</td>';
     b.appendChild(tr);});
+  renderProcess(list);
   $('jobsMeta').textContent='อัพเดต '+new Date().toLocaleTimeString('th-TH');});}
+
+// ---- process dashboard: derive the 3 phases (download → swap → upload) from a job's
+//      status + progress.{stage,pct}. The worker emits ONE global pct (swap 10→80, upload
+//      82→98, terminal 100); we split it back into per-phase fills here. No worker change. ----
+function clampPct(x){return Math.max(0,Math.min(100,Math.round(x)));}
+function phasesOf(j){
+  var st=j.status,p=j.progress||{},stage=p.stage||'',pct=p.pct||0;
+  var D={icon:'📥',label:'โหลดมีเดีย',state:'pending',pct:0,note:'รอ'};
+  var S={icon:'🎭',label:'เปลี่ยนหน้า',state:'pending',pct:0,note:'รอ'};
+  var U={icon:'☁️',label:'อัพขึ้นไดร์ฟ',state:'pending',pct:0,note:'รอ'};
+  function done(x){x.state='done';x.pct=100;x.note='เสร็จ ✓';}
+  if(st==='failed'){
+    if(stage==='uploading'){done(D);done(S);U.state='failed';U.note='ล้มเหลว';U.pct=clampPct((pct-82)/16*100)||10;}
+    else if(stage==='swapping'){done(D);S.state='failed';S.note='ล้มเหลว';S.pct=clampPct((pct-10)/70*100)||10;}
+    else{D.state='failed';D.note='ล้มเหลว';D.pct=12;}
+    return[D,S,U];
+  }
+  if(st==='skipped'){done(D);S.state='skipped';S.note='ข้าม (ไม่มีหน้าชัด)';U.state='skipped';U.note='ข้าม';return[D,S,U];}
+  if(st==='done'||st==='needs-review'){done(D);done(S);done(U);if(st==='needs-review')U.note='ต้องตรวจ';return[D,S,U];}
+  if(st==='queued'){D.note='เข้าคิว';return[D,S,U];}
+  if(st==='downloading'){
+    if(stage==='downloaded'||stage==='cache-hit'){done(D);}
+    else{D.state='active';D.pct=null;D.note=stage==='cache-hit'?'ใช้ไฟล์เดิม':'กำลังโหลด…';}
+    return[D,S,U];
+  }
+  if(st==='swapping'){done(D);D.note=p.cached?'ใช้ไฟล์เดิม ✓':'เสร็จ ✓';
+    S.state='active';S.pct=Math.max(3,clampPct((pct-10)/70*100));
+    S.note='กำลังเปลี่ยน… '+S.pct+'%'+((p.total>1)?(' ('+(p.item||1)+'/'+p.total+')'):'');return[D,S,U];}
+  if(st==='uploading'){done(D);done(S);
+    U.state='active';U.pct=Math.max(3,clampPct((pct-82)/16*100));
+    U.note='กำลังอัพ… '+((p.total>1)?((p.done||0)+'/'+p.total):U.pct+'%');return[D,S,U];}
+  return[D,S,U];
+}
+function renderProcess(list){
+  var card=$('procCard');
+  var job=null;for(var i=0;i<list.length;i++){if(jobActive(list[i].status)){job=list[i];break;}}
+  if(!job)job=list[0]||null;                 // no active job → show the most recent run
+  if(!job){card.style.display='none';return;}
+  card.style.display='block';
+  $('procTitle').innerHTML='สถานะการทำงาน '+badge(job.status);
+  var eta=(job.progress||{}).etaSec;
+  $('procMeta').textContent='@'+(job.source_handle||'')+' · '+(job.source_platform||'')+(jobActive(job.status)&&eta!=null?(' · '+fmtEta(eta)):'');
+  var ph=phasesOf(job),h='';
+  ph.forEach(function(x){
+    var indet=(x.state==='active'&&x.pct==null);
+    h+='<div class="pline '+x.state+'"><div class="pico">'+x.icon+'</div><div class="pbody">'+
+       '<div class="phead"><span>'+x.label+'</span><span class="pst">'+x.note+'</span></div>'+
+       '<div class="pbar'+(indet?' indet':'')+'"><i style="width:'+(indet?0:(x.pct||0))+'%"></i></div></div></div>';
+  });
+  $('procBody').innerHTML=h;
+}
 
 // ---- persona upload ----
 function uploadPersona(){
