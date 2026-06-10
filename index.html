@@ -360,7 +360,7 @@ function phasesOf(j){
   }
   if(st==='skipped'){done(D);S.state='skipped';S.note='ข้าม (ไม่มีหน้าชัด)';U.state='skipped';U.note='ข้าม';return[D,S,U];}
   if(st==='done'||st==='needs-review'){done(D);done(S);done(U);if(st==='needs-review')U.note='ต้องตรวจ';return[D,S,U];}
-  if(st==='queued'){D.note='เข้าคิว';return[D,S,U];}
+  if(st==='queued'){D.note=p.willRetry?('รอลองใหม่ ครั้งที่ '+((p.attempt||0)+1)):'เข้าคิว';return[D,S,U];}
   if(st==='downloading'){
     if(stage==='downloaded'||stage==='cache-hit'){done(D);}
     else{D.state='active';D.pct=null;D.note=stage==='cache-hit'?'ใช้ไฟล์เดิม':'กำลังโหลด…';}
@@ -382,7 +382,8 @@ function renderProcess(list){
   card.style.display='block';
   $('procTitle').innerHTML='สถานะการทำงาน '+badge(job.status);
   var eta=(job.progress||{}).etaSec;
-  $('procMeta').textContent='@'+(job.source_handle||'')+' · '+(job.source_platform||'')+(jobActive(job.status)&&eta!=null?(' · '+fmtEta(eta)):'');
+  var rtry=(job.attempts||0)>0?(' · ลองใหม่ครั้งที่ '+((job.attempts||0)+1)):'';
+  $('procMeta').textContent='@'+(job.source_handle||'')+' · '+(job.source_platform||'')+rtry+(jobActive(job.status)&&eta!=null?(' · '+fmtEta(eta)):'');
   var ph=phasesOf(job),h='';
   ph.forEach(function(x){
     var indet=(x.state==='active'&&x.pct==null);
