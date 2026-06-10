@@ -150,6 +150,8 @@
       <div class="hint" id="plat"></div>
       <label>ชื่อบัญชีต้นทาง (@handle)</label>
       <input id="handle" type="text" placeholder="เช่น p.pllai" autocomplete="off">
+      <label>จำนวนคลิปล่าสุด <span class="mut" style="font-weight:400">(เฉพาะลิ้งโปรไฟล์ — โพสต์/คลิปเดี่ยวข้ามค่านี้ · สูงสุด 100 · วิดีโอเยอะใช้เวลานาน)</span></label>
+      <input id="clipCount" type="number" min="1" max="100" value="1" autocomplete="off">
       <div id="personaWrap">
         <label id="personaLabel">เลือกหน้า (ครั้งแรกของบัญชีนี้)</label>
         <div class="gallery" id="gallery"></div>
@@ -293,13 +295,13 @@ function showDupWarn(src,auto){rmEl('dupWarn');
   $('dupGo').onclick=function(){rmEl('dupWarn');doSubmit(auto);};
   $('dupCancel').onclick=function(){rmEl('dupWarn');validate();};}
 function doSubmit(auto){$('formErr').textContent='';$('submit').disabled=true;$('aiPick').disabled=true;
-  sb.from('swap_jobs').insert({source_url:$('url').value.trim(),source_handle:safeHandle($('handle').value),source_platform:detectPlatform($('url').value.trim()),persona_id:auto?null:(boundPersona||chosen)}).then(function(r){
+  sb.from('swap_jobs').insert({source_url:$('url').value.trim(),source_handle:safeHandle($('handle').value),source_platform:detectPlatform($('url').value.trim()),persona_id:auto?null:(boundPersona||chosen),clip_count:Math.min(Math.max(parseInt($('clipCount').value,10)||1,1),100)}).then(function(r){
     if(r.error){$('formErr').textContent=r.error.message;validate();return;}
     rmEl('dupWarn');$('url').value='';$('handle').value='';$('plat').textContent='';chosen=null;showPicker(true);loadJobs();});}
 
 // ---- jobs ----
 function fmtTime(t){return new Date(t).toLocaleString('th-TH',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'});}
-function fmtEta(s){if(s==null)return'';if(s<90)return'เหลือ ~'+Math.round(s)+' วิ';return'เหลือ ~'+Math.round(s/60)+' นาที';}
+function fmtEta(s){if(s==null)return'';if(s<90)return'เหลือ ~'+Math.round(s)+' วิ';if(s<7200)return'เหลือ ~'+Math.round(s/60)+' นาที';return'เหลือ ~'+(s/3600).toFixed(1)+' ชม.';}
 function badge(s){return'<span class="badge b-'+s.replace('-','')+'">'+s+'</span>';}
 function jobActive(s){return['queued','downloading','swapping','uploading'].indexOf(s)>=0;}
 function resultCell(j){
@@ -368,10 +370,10 @@ function phasesOf(j){
   }
   if(st==='swapping'){done(D);D.note=p.cached?'ใช้ไฟล์เดิม ✓':'เสร็จ ✓';
     S.state='active';S.pct=Math.max(3,clampPct((pct-10)/70*100));
-    S.note='กำลังเปลี่ยน… '+S.pct+'%'+((p.total>1)?(' ('+(p.item||1)+'/'+p.total+')'):'');return[D,S,U];}
+    S.note=(p.total>1)?('คลิป '+(p.item||1)+'/'+p.total+' · '+S.pct+'%'):('กำลังเปลี่ยน… '+S.pct+'%');return[D,S,U];}
   if(st==='uploading'){done(D);done(S);
     U.state='active';U.pct=Math.max(3,clampPct((pct-82)/16*100));
-    U.note='กำลังอัพ… '+((p.total>1)?((p.done||0)+'/'+p.total):U.pct+'%');return[D,S,U];}
+    U.note=(p.total>1)?('อัพ '+(p.done||0)+'/'+p.total):('กำลังอัพ… '+U.pct+'%');return[D,S,U];}
   return[D,S,U];
 }
 function renderProcess(list){
